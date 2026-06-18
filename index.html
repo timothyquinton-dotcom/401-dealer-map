@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>401 Group Dealership Locations</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { font-family: Arial, sans-serif; background: #f5f5f5; }
+    #map { height: 65vh; width: 100%; }
+
+    .custom-layer-control {
+      background: white;
+      border-radius: 8px;
+      padding: 8px 10px;
+      max-height: 55vh;
+      overflow-y: auto;
+      min-width: 190px;
+      box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+      font-size: 12px;
+    }
+    .layer-control-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding-bottom: 7px;
+      border-bottom: 1px solid #ddd;
+      margin-bottom: 6px;
+      font-weight: 700;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .brand-toggle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 2px 0;
+      cursor: pointer;
+    }
+    .brand-toggle label {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .brand-logo-sm {
+      width: 20px;
+      height: 20px;
+      object-fit: contain;
+      mix-blend-mode: multiply;
+    }
+
+    #dealer-table-wrapper { padding: 20px; }
+    .brand-section { margin-bottom: 28px; }
+    .brand-heading {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #222;
+      padding-bottom: 5px;
+      border-bottom: 2px solid #c00;
+      margin-bottom: 6px;
+    }
+    .brand-heading img {
+      width: 22px;
+      height: 22px;
+      object-fit: contain;
+      mix-blend-mode: multiply;
+    }
+    .dealer-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .dealer-table td { padding: 5px 8px; border-bottom: 1px solid #eee; vertical-align: top; }
+    .dealer-table tr:hover td { background: #fafafa; }
+    .dealer-table td:first-child { color: #888; white-space: nowrap; }
+    .dealer-table td a { color: #c00; text-decoration: none; }
+    .dealer-table td a:hover { text-decoration: underline; }
+
+    .leaflet-popup-content-wrapper { border-radius: 8px; }
+    .leaflet-popup-content { margin: 12px 16px; min-width: 200px; }
+    .popup-brand { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #999; margin-bottom: 3px; }
+    .popup-name { font-size: 14px; font-weight: 700; color: #1a1a1a; margin-bottom: 8px; }
+    .popup-row { font-size: 12px; color: #555; margin: 3px 0; }
+    .popup-row a { color: #c00; text-decoration: none; }
+  </style>
+</head>
+<body>
+<div id="map"></div>
+<div id="dealer-table-wrapper"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+const BASE = 'https://raw.githubusercontent.com/timothyquinton-dotcom/auto-logos/refs/heads/main/';
+
+const brandLogos = {
+  '401Auto':'401auto.png','AutoMall':'401group.png','AutoMart':'automart.png',
+  'AutoShow':'401group.png','CampMart':'campmart.png','Chrysler':'chrysler.png',
+  'Corporate':'401group.png','GM':'gm.png','Honda':'honda.png','Hyundai':'hyundai.png',
+  'Kia':'kia.png','Mitsubishi':'mitsubishi.png','Nissan':'nissan.png',
+  'Subaru':'subaru.png','Toyota':'toyota.png','VW':'vw.png','Yamaha':'yamaha.png'
+};
+
+const dealers = [
+  {name:"401Auto",brand:"401Auto",address:"13300 Desro Drive, Tecumseh, ON",phone:"(226) 946-2944",website:"401auto.ca",lat:42.3043576,lng:-82.8741375},
+  {name:"401Auto",brand:"401Auto",address:"2060 Commerce Park Drive, Innisfil, ON",phone:"(705) 881-9039",website:"401auto.ca",lat:44.2851907,lng:-79.6759773},
+  {name:"401Auto",brand:"401Auto",address:"1655 Upper James Street, Hamilton, ON",phone:"(289) 639-0639",website:"401auto.ca",lat:43.200909,lng:-79.8933433},
+  {name:"401Auto",brand:"401Auto",address:"325 Ingersoll Street South, Ingersoll, ON",phone:"(519) 485-2100",website:"401auto.ca",lat:43.0181774,lng:-80.8824072},
+  {name:"401Auto",brand:"401Auto",address:"353 Manitou Drive, Kitchener, ON",phone:"(226) 535-1200",website:"401auto.ca",lat:43.4047932,lng:-80.4497886},
+  {name:"401Auto",brand:"401Auto",address:"940 Wharncliffe Road South, London, ON",phone:"(226) 884-9080",website:"401auto.ca",lat:42.9391772,lng:-81.257874},
+  {name:"401Auto",brand:"401Auto",address:"7818 Oakwood Dr, Niagara Falls, ON",phone:"(289) 646 2267",website:"401auto.ca",lat:43.0628662,lng:-79.1210054},
+  {name:"401Auto",brand:"401Auto",address:"20 Frank Nighbor Place, Ottawa, ON",phone:"(613) 366-1928",website:"401auto.ca",lat:45.30166,lng:-75.9188429},
+  {name:"401Auto",brand:"401Auto",address:"974 Syer Line, Fraserville, ON",phone:"(705) 400-8459",website:"401auto.ca",lat:44.1885907,lng:-78.4576711},
+  {name:"401Auto",brand:"401Auto",address:"2100 Kingsway, Greater Sudbury, ON",phone:"(226) 270-5641",website:"401auto.ca",lat:46.4982459,lng:-80.9196901},
+  {name:"401Auto",brand:"401Auto",address:"2200 Eagle Street North, Cambridge, ON",phone:"(519) 650-4771",website:"401auto.ca",lat:43.4075565,lng:-80.3348013},
+  {name:"Pembroke AutoMall",brand:"AutoMall",address:"1397 Pembroke St W, Pembroke, ON",phone:"(613) 735-6388",website:"pembrokeautomall.com",lat:45.8400594,lng:-77.1687188},
+  {name:"Peterborough AutoMall",brand:"AutoMall",address:"1370 Chemong Road, Peterborough, ON",phone:"(705) 876-1224",website:"peterboroughautomall.com",lat:44.3354143,lng:-78.3462844},
+  {name:"Owen Sound AutoMall",brand:"AutoMall",address:"202404 Sunset Strip, Owen Sound, ON",phone:"(519) 371-2981",website:"owensoundautomall.com",lat:44.5690305,lng:-80.9405602},
+  {name:"AutoMart Cambridge",brand:"AutoMart",address:"396 Hespeler Road, Cambridge, ON",phone:"(519) 653-1799",website:"automart.ca",lat:43.3933985,lng:-80.3243585},
+  {name:"AutoMart Kitchener",brand:"AutoMart",address:"353 Manitou Drive, Kitchener, ON",phone:"(888) 718-9649",website:"automart.ca",lat:43.4047932,lng:-80.4497886},
+  {name:"AutoShow Winnipeg",brand:"AutoShow",address:"3165 McGillivray Blvd, Winnipeg, MB",phone:"(204) 489-4494",website:"autoshowwinnipeg.com",lat:49.8120836,lng:-97.2295444},
+  {name:"CampMart",brand:"CampMart",address:"13300 Desro Drive, Tecumseh, ON",phone:"(226) 946-2944",website:"campmart.ca",lat:42.3043576,lng:-82.8741375},
+  {name:"CampMart",brand:"CampMart",address:"2060 Commerce Park Drive, Innisfil, ON",phone:"(705) 881-9039",website:"campmart.ca",lat:44.2851907,lng:-79.6759773},
+  {name:"CampMart",brand:"CampMart",address:"2200 Eagle Street North, Cambridge, ON",phone:"(519) 650-4771",website:"campmart.ca",lat:43.4075565,lng:-80.3348013},
+  {name:"CampMart",brand:"CampMart",address:"1655 Upper James Street, Hamilton, ON",phone:"(289) 639-0639",website:"campmart.ca",lat:43.200909,lng:-79.8933433},
+  {name:"CampMart",brand:"CampMart",address:"325 Ingersoll Street South, Ingersoll, ON",phone:"(519) 485-2100",website:"campmart.ca",lat:43.0181774,lng:-80.8824072},
+  {name:"CampMart",brand:"CampMart",address:"353 Manitou Drive, Kitchener, ON",phone:"(226) 535-1200",website:"campmart.ca",lat:43.4047932,lng:-80.4497886},
+  {name:"RV Repair Center Kitchener",brand:"CampMart",address:"353 Manitou Drive, Kitchener, ON",phone:"(226) 535-1200",website:"campmart.ca",lat:43.4057932,lng:-80.4507886},
+  {name:"CampMart",brand:"CampMart",address:"940 Wharncliffe Road South, London, ON",phone:"(226) 884-9080",website:"campmart.ca",lat:42.9391772,lng:-81.257874},
+  {name:"CampMart",brand:"CampMart",address:"7818 Oakwood Dr, Niagara Falls, ON",phone:"(289) 646-2267",website:"campmart.ca",lat:43.0628662,lng:-79.1210054},
+  {name:"CampMart",brand:"CampMart",address:"20 Frank Nighbor Place, Ottawa, ON",phone:"(613) 366-1928",website:"campmart.ca",lat:45.30166,lng:-75.9188429},
+  {name:"CampMart",brand:"CampMart",address:"974 Syer Line, Fraserville, ON",phone:"(705) 400-8459",website:"campmart.ca",lat:44.1885907,lng:-78.4576711},
+  {name:"CampMart",brand:"CampMart",address:"2100 Kingsway, Greater Sudbury, ON",phone:"(226) 270-5641",website:"campmart.ca",lat:46.4982459,lng:-80.9196901},
+  {name:"North Bay Chrysler",brand:"Chrysler",address:"2635 Trout Lake Road, North Bay, ON",phone:"(705) 472-3212",website:"northbaychrysler.com",lat:46.3232843,lng:-79.4304002},
+  {name:"Pembroke Chrysler",brand:"Chrysler",address:"1398 Pembroke Street West, Pembroke, ON",phone:"(613) 735-0634",website:"pembrokechrysler.com",lat:45.8390778,lng:-77.1694887},
+  {name:"Renfrew Chrysler",brand:"Chrysler",address:"376 O'Brien Road, Renfrew, ON",phone:"(613) 432-8532",website:"renfrewchrysler.ca",lat:45.4700384,lng:-76.6682977},
+  {name:"401Group HQ",brand:"Corporate",address:"2225 Eagle Street North, Cambridge, ON",phone:"(519) 650-4771",website:"401group.ca",lat:43.4064105,lng:-80.3349318},
+  {name:"Blackshop Restaurant",brand:"Corporate",address:"595 Hespeler Road, Cambridge, ON",phone:"(519) 621-4180",website:"blackshop.ca",lat:43.4044609,lng:-80.3260574},
+  {name:"Mission Motors",brand:"GM",address:"61 Mission Rd, Wawa, ON",phone:"(705) 856-2394",website:"missionmotors.com",lat:47.9785788,lng:-84.7808152},
+  {name:"Pembroke Honda",brand:"Honda",address:"1405 Pembroke St West, Pembroke, ON",phone:"(613) 735-6835",website:"pembrokehonda.ca",lat:45.8404076,lng:-77.1703867},
+  {name:"Peterborough Hyundai",brand:"Hyundai",address:"1370 Chemong Road, Peterborough, ON",phone:"(705) 876-1224",website:"peterboroughhyundai.com",lat:44.3354143,lng:-78.3462844},
+  {name:"Stratford Hyundai",brand:"Hyundai",address:"640 Lorne Avenue East, Stratford, ON",phone:"(519) 426-6150",website:"stratfordhyundai.com",lat:43.3534837,lng:-80.9734096},
+  {name:"Windsor Hyundai",brand:"Hyundai",address:"1620 Sylvestre Dr, Tecumseh, ON",phone:"(519) 735-7753",website:"windsorhyundai.com",lat:42.3053974,lng:-82.8760427},
+  {name:"Barrie Kia",brand:"Kia",address:"52 King Street, Barrie, ON",phone:"(705) 881-9039",website:"barriekia.com",lat:44.32875,lng:-79.7040533},
+  {name:"Cambridge Kia",brand:"Kia",address:"2180 Eagle Street North, Cambridge, ON",phone:"(519) 621-6768",website:"cambridgekia.com",lat:43.4073254,lng:-80.3356319},
+  {name:"Kingston Kia",brand:"Kia",address:"2820 Princess Street, Kingston, ON",phone:"(613) 384-2005",website:"kingstonkia.com",lat:44.2604132,lng:-76.5845607},
+  {name:"Mississauga Kia",brand:"Kia",address:"2600 Motorway Blvd, Mississauga, ON",phone:"(905) 828-2289",website:"mississaugakia.com",lat:43.5283991,lng:-79.6785675},
+  {name:"Tillsonburg Kia",brand:"Kia",address:"11 Simcoe Street, Tillsonburg, ON",phone:"(519) 842-3031",website:"tillsonburgkia.com",lat:42.8599318,lng:-80.7200124},
+  {name:"Baywest Mitsubishi",brand:"Mitsubishi",address:"202410 Sunset Strip, Owen Sound, ON",phone:"(519) 470-2277",website:"baywestnissan.ca",lat:44.5690305,lng:-80.9405602},
+  {name:"Fort Myers Mitsubishi",brand:"Mitsubishi",address:"2320 Colonial Blvd, Fort Myers, FL",phone:"(239) 719-3133",website:"fortmyersmitsubishi.com",lat:26.5962958,lng:-81.8652588},
+  {name:"Sudbury Mitsubishi",brand:"Mitsubishi",address:"2100 Kingsway, Sudbury, ON",phone:"(888) 440-3932",website:"sudburymitsubishi.com",lat:46.4982459,lng:-80.9196901},
+  {name:"Sunny Mitsubishi Jacksonville",brand:"Mitsubishi",address:"10100 Atlantic Blvd, Jacksonville, FL",phone:"(904) 902-9501",website:"sunnymitsubishi.com",lat:30.3225023,lng:-81.5376584},
+  {name:"Windsor Mitsubishi",brand:"Mitsubishi",address:"1622 Sylvestre Dr, Windsor, ON",phone:"(226) 946-2055 ",website:"windsormitsubishi.ca",lat:42.3046656,lng:-82.8759606},
+  {name:"Baywest Nissan",brand:"Nissan",address:"202408 Sunset Strip, Owen Sound, ON",phone:"(519) 372-2277",website:"baywest-nissan.ca",lat:44.5577573,lng:-80.9743474},
+  {name:"Pembroke Nissan",brand:"Nissan",address:"1397 Pembroke St W, Pembroke, ON",phone:"(833) 617-5675",website:"pembrokenissan.ca",lat:45.8400594,lng:-77.1687188},
+  {name:"Woodstock Nissan",brand:"Nissan",address:"1201 Dundas Street, Woodstock, ON",phone:"(519) 537-2277",website:"woodstock-nissan.ca",lat:43.13613,lng:-80.7194635},
+  {name:"North Bay Subaru",brand:"Subaru",address:"600 McKeown Ave, North Bay, ON",phone:"(705) 472-2222",website:"subaruofnorthbay.ca",lat:46.331984,lng:-79.4789835},
+  {name:"Peterborough Subaru",brand:"Subaru",address:"1370 Chemong Rd, Peterborough, ON",phone:"(705) 876-6591",website:"peterboroughsubaru.com",lat:44.3354143,lng:-78.3462844},
+  {name:"Owen Sound Toyota",brand:"Toyota",address:"202404 Sunset Strip, Owen Sound, ON",phone:"(519) 371-2981",website:"owensoundtoyota.com",lat:44.5690305,lng:-80.9405602},
+  {name:"Owen Sound VW",brand:"VW",address:"202444 ON-21, Owen Sound, ON",phone:"(519) 372-2020",website:"owensoundvw.ca",lat:44.5592419,lng:-80.970861},
+  {name:"Simcoe VW",brand:"VW",address:"370 Queensway West, Simcoe, ON",phone:"(519) 426-6150",website:"simcoevw.ca",lat:42.8435693,lng:-80.3184133},
+  {name:"Woodstock VW",brand:"VW",address:"1479 Dundas St., Woodstock, ON",phone:"(226) 557-8989",website:"woodstockvw.com",lat:43.1380849,lng:-80.703703},
+  {name:"Sudbury Yamaha",brand:"Yamaha",address:"2100 Kingsway Avenue, Sudbury, ON",phone:"(705) 222-7529",website:"sudburyyamaha.ca",lat:46.4982459,lng:-80.9196901},
+  {name:"Temagami Marine",brand:"Yamaha",address:"52 Temagami Marine Rd, Temagami, ON",phone:"(705) 569-3221",website:"temagamimarine.com",lat:47.0492192,lng:-79.7998493},
+  {name:"Windsor Yamaha",brand:"Yamaha",address:"13300 Desro Drive, Tecumseh, ON",phone:"(226) 946-2944",website:"windsoryamaha.com",lat:42.3043576,lng:-82.8741375}
+];
+
+const map = L.map('map').setView([45.5, -80.0], 6);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+  maxZoom: 19
+}).addTo(map);
+
+function getIcon(brand) {
+  return L.divIcon({
+    html: `<img src="${BASE}${brandLogos[brand]||'401group.png'}" style="width:36px;height:36px;object-fit:contain;mix-blend-mode:multiply;">`,
+    className: '',
+    iconSize: [36, 36],
+    iconAnchor: [18, 18],
+    popupAnchor: [0, -22]
+  });
+}
+
+const layerGroups = {};
+const brandVisible = {};
+const brands = [...new Set(dealers.map(d => d.brand))].sort();
+
+brands.forEach(b => {
+  layerGroups[b] = L.layerGroup().addTo(map);
+  brandVisible[b] = true;
+});
+
+dealers.forEach(d => {
+  const popup = `
+    <div class="popup-brand">${d.brand}</div>
+    <div class="popup-name">${d.name}</div>
+    <div class="popup-row">📍 ${d.address}</div>
+    <div class="popup-row">📞 <a href="tel:${d.phone}">${d.phone}</a></div>
+    <div class="popup-row">🌐 <a href="https://${d.website}" target="_blank">${d.website}</a></div>
+  `;
+  L.marker([d.lat, d.lng], {icon: getIcon(d.brand)}).bindPopup(popup).addTo(layerGroups[d.brand]);
+});
+
+// Custom layer control
+const CustomControl = L.Control.extend({
+  options: { position: 'topright' },
+  onAdd() {
+    const div = L.DomUtil.create('div', 'custom-layer-control');
+    L.DomEvent.disableClickPropagation(div);
+    L.DomEvent.disableScrollPropagation(div);
+
+    // All checkbox
+    const header = L.DomUtil.create('div', 'layer-control-header', div);
+    const allCb = document.createElement('input');
+    allCb.type = 'checkbox'; allCb.id = 'cb-all'; allCb.checked = true;
+    const allLbl = document.createElement('label');
+    allLbl.htmlFor = 'cb-all'; allLbl.textContent = 'All Locations';
+    header.appendChild(allCb); header.appendChild(allLbl);
+
+    allCb.addEventListener('change', function() {
+      brands.forEach(b => {
+        brandVisible[b] = this.checked;
+        const cb = document.getElementById('cb-' + b);
+        if (cb) cb.checked = this.checked;
+        this.checked ? map.addLayer(layerGroups[b]) : map.removeLayer(layerGroups[b]);
+      });
+      updateTable();
+    });
+
+    // Brand toggles
+    brands.forEach(b => {
+      const count = dealers.filter(d => d.brand === b).length;
+      const row = L.DomUtil.create('div', 'brand-toggle', div);
+      const cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.id = 'cb-' + b; cb.checked = true;
+      const lbl = document.createElement('label');
+      lbl.htmlFor = 'cb-' + b;
+      lbl.innerHTML = `<img class="brand-logo-sm" src="${BASE}${brandLogos[b]||'401group.png'}"> ${b} <span style="color:#aaa">(${count})</span>`;
+      row.appendChild(cb); row.appendChild(lbl);
+
+      cb.addEventListener('change', function() {
+        brandVisible[b] = this.checked;
+        this.checked ? map.addLayer(layerGroups[b]) : map.removeLayer(layerGroups[b]);
+        const allChecked = brands.every(br => brandVisible[br]);
+        const anyChecked = brands.some(br => brandVisible[br]);
+        const allCb = document.getElementById('cb-all');
+        allCb.checked = allChecked;
+        allCb.indeterminate = !allChecked && anyChecked;
+        updateTable();
+      });
+    });
+
+    return div;
+  }
+});
+new CustomControl().addTo(map);
+
+function updateTable() {
+  const wrapper = document.getElementById('dealer-table-wrapper');
+  wrapper.innerHTML = '';
+  brands.forEach(b => {
+    if (!brandVisible[b]) return;
+    const brandDealers = dealers.filter(d => d.brand === b);
+    if (!brandDealers.length) return;
+
+    const section = document.createElement('div');
+    section.className = 'brand-section';
+
+    const heading = document.createElement('div');
+    heading.className = 'brand-heading';
+    heading.innerHTML = `<img src="${BASE}${brandLogos[b]||'401group.png'}"> ${b}`;
+    section.appendChild(heading);
+
+    const table = document.createElement('table');
+    table.className = 'dealer-table';
+    brandDealers.forEach(d => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${d.brand}</td>
+        <td>${d.name}</td>
+        <td>${d.address}</td>
+        <td><a href="tel:${d.phone}">${d.phone}</a></td>
+        <td><a href="https://${d.website}" target="_blank">${d.website}</a></td>
+      `;
+      table.appendChild(tr);
+    });
+    section.appendChild(table);
+    wrapper.appendChild(section);
+  });
+}
+
+updateTable();
+</script>
+</body>
+</html>
