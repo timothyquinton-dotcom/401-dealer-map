@@ -49,7 +49,6 @@
       width: 20px;
       height: 20px;
       object-fit: contain;
-      mix-blend-mode: multiply;
     }
 
     #dealer-table-wrapper { padding: 20px; }
@@ -71,7 +70,6 @@
       width: 22px;
       height: 22px;
       object-fit: contain;
-      mix-blend-mode: multiply;
     }
     .dealer-table { width: 100%; border-collapse: collapse; font-size: 12px; }
     .dealer-table td { padding: 5px 8px; border-bottom: 1px solid #eee; vertical-align: top; }
@@ -176,7 +174,7 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 
 function getIcon(brand) {
   return L.divIcon({
-    html: `<img src="${BASE}${brandLogos[brand]||'401group.png'}" style="width:36px;height:36px;object-fit:contain;mix-blend-mode:multiply;">`,
+    html: `<img src="${BASE}${brandLogos[brand]||'401group.png'}" style="width:36px;height:36px;object-fit:contain;">`,
     className: '',
     iconSize: [36, 36],
     iconAnchor: [18, 18],
