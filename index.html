@@ -84,6 +84,19 @@
     .popup-name { font-size: 14px; font-weight: 700; color: #1a1a1a; margin-bottom: 8px; }
     .popup-row { font-size: 12px; color: #555; margin: 3px 0; }
     .popup-row a { color: #c00; text-decoration: none; }
+    .popup-address { margin-bottom: 8px; }
+    .popup-entry { padding: 8px 0; border-top: 1px solid #eee; }
+    .popup-entry .popup-name { margin-bottom: 4px; }
+
+    .pin { position: relative; width: 36px; height: 36px; }
+    .pin img { width: 36px; height: 36px; object-fit: contain; }
+    .pin-count {
+      position: absolute; top: -6px; right: -8px;
+      min-width: 18px; height: 18px; padding: 0 4px;
+      border-radius: 9px; background: #c00; color: #fff;
+      font: 700 11px/18px Arial, sans-serif; text-align: center;
+      box-shadow: 0 0 0 2px #fff;
+    }
   </style>
 </head>
 <body>
@@ -176,9 +189,10 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 19
 }).addTo(map);
 
-function getIcon(brand) {
+function getIcon(brand, count) {
+  const badge = count > 1 ? `<span class="pin-count">${count}</span>` : '';
   return L.divIcon({
-    html: `<img src="${BASE}${brandLogos[brand]||'401group.png'}" style="width:36px;height:36px;object-fit:contain;">`,
+    html: `<div class="pin"><img src="${BASE}${brandLogos[brand]||'401group.png'}">${badge}</div>`,
     className: '',
     iconSize: [36, 36],
     iconAnchor: [18, 18],
@@ -186,25 +200,43 @@ function getIcon(brand) {
   });
 }
 
-const layerGroups = {};
 const brandVisible = {};
 const brands = [...new Set(dealers.map(d => d.brand))].sort();
+brands.forEach(b => { brandVisible[b] = true; });
 
-brands.forEach(b => {
-  layerGroups[b] = L.layerGroup().addTo(map);
-  brandVisible[b] = true;
-});
-
+// One pin per address: businesses sharing an address share a pin and a popup.
+// The pin sits at the first listed dealer's coordinates.
+const sites = [];
+const siteByAddress = {};
 dealers.forEach(d => {
-  const popup = `
-    <div class="popup-brand">${d.brand}</div>
-    <div class="popup-name">${d.name}</div>
-    <div class="popup-row">📍 ${d.address}</div>
-    <div class="popup-row">📞 <a href="tel:${d.phone}">${d.phone}</a></div>
-    <div class="popup-row">🌐 <a href="https://${d.website}" target="_blank">${d.website}</a></div>
-  `;
-  L.marker([d.lat, d.lng], {icon: getIcon(d.brand)}).bindPopup(popup).addTo(layerGroups[d.brand]);
+  if (!siteByAddress[d.address]) {
+    siteByAddress[d.address] = {address: d.address, lat: d.lat, lng: d.lng, dealers: []};
+    sites.push(siteByAddress[d.address]);
+  }
+  siteByAddress[d.address].dealers.push(d);
 });
+
+const markerLayer = L.layerGroup().addTo(map);
+
+function renderMarkers() {
+  markerLayer.clearLayers();
+  sites.forEach(s => {
+    const visible = s.dealers.filter(d => brandVisible[d.brand]);
+    if (!visible.length) return;
+    const entries = visible.map(d => `
+      <div class="popup-entry">
+        <div class="popup-brand">${d.brand}</div>
+        <div class="popup-name">${d.name}</div>
+        <div class="popup-row">📞 <a href="tel:${d.phone}">${d.phone}</a></div>
+        <div class="popup-row">🌐 <a href="https://${d.website}" target="_blank">${d.website}</a></div>
+      </div>`).join('');
+    const popup = `<div class="popup-row popup-address">📍 ${s.address}</div>${entries}`;
+    L.marker([s.lat, s.lng], {icon: getIcon(visible[0].brand, visible.length)})
+      .bindPopup(popup, {maxHeight: 320})
+      .addTo(markerLayer);
+  });
+}
+renderMarkers();
 
 // Custom layer control
 const CustomControl = L.Control.extend({
@@ -227,8 +259,9 @@ const CustomControl = L.Control.extend({
         brandVisible[b] = this.checked;
         const cb = document.getElementById('cb-' + b);
         if (cb) cb.checked = this.checked;
-        this.checked ? map.addLayer(layerGroups[b]) : map.removeLayer(layerGroups[b]);
       });
+      this.indeterminate = false;
+      renderMarkers();
       updateTable();
     });
 
@@ -245,7 +278,7 @@ const CustomControl = L.Control.extend({
 
       cb.addEventListener('change', function() {
         brandVisible[b] = this.checked;
-        this.checked ? map.addLayer(layerGroups[b]) : map.removeLayer(layerGroups[b]);
+        renderMarkers();
         const allChecked = brands.every(br => brandVisible[br]);
         const anyChecked = brands.some(br => brandVisible[br]);
         const allCb = document.getElementById('cb-all');
